@@ -1,0 +1,104 @@
+def main():
+    import os
+    import sys
+    import inspect
+
+    currentdir = os.path.dirname(
+        os.path.abspath(inspect.getfile(inspect.currentframe()))
+    )
+    parentdir = os.path.dirname(currentdir)
+    sys.path.insert(0, parentdir)
+
+    import pandas as pd
+    import torch
+    from pytorch_lightning.loggers import WandbLogger
+    from helper_functions import count_classes
+
+    from models.image_classifier_module import (
+        ImageClassificationLightningModule,
+        get_conv_model_transformations,
+    )
+    from pytorch_lightning.callbacks import ModelCheckpoint
+    from pytorch_lightning import Trainer
+    from pytorch_lightning.callbacks import EarlyStopping, ModelSummary
+    from data.data_modules import Covid, Sampling
+    from torchmetrics.classification import MulticlassAccuracy
+    from torchmetrics import MetricCollection
+    from torch import nn
+    import wandb
+    import configuration as config
+
+    torch.set_float32_matmul_precision("high")
+    device = "cuda" if torch.cuda.is_available() else "cpu"
+
+    class_count = count_classes(config.ROOT_DIR)
+
+    metrics = MetricCollection(
+        {
+            "Accuracy": MulticlassAccuracy(num_classes=class_count, average="micro"),
+            "BalancedAccuracy": MulticlassAccuracy(num_classes=class_count),
+        }
+    )
+
+    from conv.convnext import ConvNext
+
+    train_transform, test_transform = get_conv_model_transformations()
+
+    cr_leaves_dm = CRLeavesDataModule(
+        root_dir=config.ROOT_DIR,
+        batch_size=config.BATCH_SIZE,
+        test_size=config.TEST_SIZE,
+        use_index=config.USE_INDEX,
+        indices_dir=config.INDICES_DIR,
+        sampling=Sampling.NONE,
+        train_transform=test_transform,
+        test_transform=test_transform,
+    )
+
+    cr_leaves_dm.prepare_data()
+    cr_leaves_dm.create_data_loaders()
+
+    metrics_data = []
+    for i in range(config.NUM_TRIALS):
+        convnext = ConvNext(num_classes=class_count, device=device)
+        model = ConvolutionalLightningModule(
+            conv_model=convnext,
+            loss_fn=nn.CrossEntropyLoss(),
+            metrics=metrics,
+            lr=config.LR,
+            scheduler_max_it=config.SCHEDULER_MAX_IT,
+        )
+        early_stop_callback = EarlyStopping(
+            monitor="val/loss",
+            patience=config.PATIENCE,
+            strict=False,
+            verbose=False,
+            mode="min",
+        )
+        checkpoint_callback = ModelCheckpoint(
+            monitor="val/loss",
+            dirpath=config.CONVNEXT_DIR,
+            filename=config.CONVNEXT_FILENAME + str(i),
+            save_top_k=config.TOP_K_SAVES,
+            mode="min",
+        )
+
+        id = config.CONVNEXT_FILENAME + str(i) + "_" + wandb.util.generate_id()
+        wandb_logger = WandbLogger(project=config.WANDB_PROJECT, id=id, resume="allow")
+
+        trainer = Trainer(
+            logger=wandb_logger,
+            callbacks=[early_stop_callback, checkpoint_callback],
+            max_epochs=config.EPOCHS,
+            log_every_n_steps=1,
+        )
+
+        trainer.fit(model, datamodule=cr_leaves_dm)
+        metrics_data.append(trainer.test(model, datamodule=cr_leaves_dm)[0])
+        wandb.finish()
+
+    pd.DataFrame(metrics_data).to_csv(config.CONVNEXT_CSV_FILENAME, index=False)
+
+
+if __name__ == "__main__":
+    main()

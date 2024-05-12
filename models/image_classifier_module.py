@@ -4,9 +4,10 @@ from pytorch_lightning import LightningModule
 from torch.optim import Adam
 from torch.optim.lr_scheduler import CosineAnnealingLR
 
-class ConvolutionalLightningModule(LightningModule):
+
+class ImageClassificationLightningModule(LightningModule):
     """
-    LightningModule implementation for the ViT (Vision Transformer) model.
+    LightningModule implementation for image classification tasks.
 
     Args:
         conv_model: Model instance representing the Convolution Network Model.
@@ -25,9 +26,10 @@ class ConvolutionalLightningModule(LightningModule):
         lr (float): Learning rate for the optimizer.
         scheduler_max_it (int): Maximum number of iterations for the learning rate scheduler.
     """
+
     def __init__(
         self,
-        conv_model,
+        model,
         loss_fn,
         metrics,
         lr,
@@ -35,7 +37,7 @@ class ConvolutionalLightningModule(LightningModule):
         weight_decay=0,
     ):
         super().__init__()
-        self.model = conv_model
+        self.model = model
         self.loss_fn = loss_fn
         self.train_metrics = metrics.clone(prefix="train/")
         self.val_metrics = metrics.clone(prefix="val/")
@@ -177,10 +179,10 @@ def get_conv_model_transformations() -> tuple[torchvision.transforms.Compose]:
         [
             torchvision.transforms.Resize(232),
             torchvision.transforms.CenterCrop(224),
+            torchvision.transforms.ToTensor(),
             torchvision.transforms.RandomHorizontalFlip(),
             torchvision.transforms.RandomVerticalFlip(),
             torchvision.transforms.RandomRotation(45),
-            torchvision.transforms.ToTensor(),
             torchvision.transforms.Normalize(
                 [0.485, 0.456, 0.406], [0.229, 0.224, 0.225]
             ),

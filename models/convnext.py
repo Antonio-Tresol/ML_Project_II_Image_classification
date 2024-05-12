@@ -1,9 +1,7 @@
 from torch import nn
 import torch
-from torchvision.models import (
-    convnext_base,
-    ConvNeXt_Base_Weights
-)
+from torchvision.models import convnext_base, ConvNeXt_Base_Weights
+
 
 class ConvNext(nn.Module):
     def __init__(self, num_classes, device) -> None:
@@ -18,11 +16,6 @@ class ConvNext(nn.Module):
         self.convnext = convnext_base(weights=ConvNeXt_Base_Weights.DEFAULT).to(
             device=device
         )
-
-        # freeze the base parameters
-        for parameter in self.convnext.parameters():
-            parameter.requires_grad = False
-
         self.convnext.classifier[2] = nn.Linear(
             in_features=1024, out_features=num_classes, bias=True
         ).to(device=device)
