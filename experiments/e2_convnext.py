@@ -1,3 +1,4 @@
+# con filtro
 def main():
     import os
     import sys
@@ -21,7 +22,7 @@ def main():
     from pytorch_lightning.callbacks import ModelCheckpoint
     from pytorch_lightning import Trainer
     from pytorch_lightning.callbacks import EarlyStopping, ModelSummary
-    from data.data_modules import Covid, Sampling
+    from data.data_modules import CovidDataModule, Sampling
     from torchmetrics.classification import MulticlassAccuracy
     from torchmetrics import MetricCollection
     from torch import nn
@@ -40,11 +41,11 @@ def main():
         }
     )
 
-    from conv.convnext import ConvNext
+    from models.convnext import ConvNext
 
     train_transform, test_transform = get_conv_model_transformations()
 
-    cr_leaves_dm = CRLeavesDataModule(
+    cr_leaves_dm = CovidDataModule(
         root_dir=config.ROOT_DIR,
         batch_size=config.BATCH_SIZE,
         test_size=config.TEST_SIZE,
@@ -61,7 +62,7 @@ def main():
     metrics_data = []
     for i in range(config.NUM_TRIALS):
         convnext = ConvNext(num_classes=class_count, device=device)
-        model = ConvolutionalLightningModule(
+        model = ImageClassificationLightningModule(
             conv_model=convnext,
             loss_fn=nn.CrossEntropyLoss(),
             metrics=metrics,

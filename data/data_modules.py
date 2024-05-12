@@ -19,6 +19,7 @@ from pytorch_lightning import LightningDataModule
 
 # Customs
 from data.datasets import ImageFolderDataset
+import configuration as config
 
 
 # Enum for different sampling strategies
@@ -264,8 +265,7 @@ class ImagesDataModule(LightningDataModule):
         return self.test_loader
 
 
-# CR Leaves specific data module
-class CRLeavesDataModule(ImagesDataModule):
+class CovidDataModule(ImagesDataModule):
     def __init__(
         self,
         root_dir: str,
@@ -278,7 +278,7 @@ class CRLeavesDataModule(ImagesDataModule):
         test_transform=None,
     ):
         """
-        Initialize a CRLeaves dataset data module.
+        Initialize a covid 19 datamodule dataset data module.
 
         Args:
             root_dir (str): Root directory of the dataset.
@@ -291,7 +291,7 @@ class CRLeavesDataModule(ImagesDataModule):
             test_transform (optional): Transformations to apply to test data. Default is None.
         """
         super().__init__(
-            dataset="CRLeaves",
+            dataset=config.COVID_DATASET,
             root_dir=root_dir,
             batch_size=batch_size,
             test_size=test_size,
