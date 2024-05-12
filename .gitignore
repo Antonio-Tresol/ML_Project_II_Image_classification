@@ -160,3 +160,4 @@ cython_debug/
 #.idea/
 
 dataset\COVID-19_Radiography_Dataset
+dataset
