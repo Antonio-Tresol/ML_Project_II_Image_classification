@@ -1,5 +1,5 @@
 COVID_DATASET = "COVID-19_Radiography_Dataset"
-ROOT_DIR = "COVID-19_Radiography_Dataset/"
+ROOT_DIR = "dataset/COVID-19_Radiography_Dataset/"
 EPOCHS = 30
 LR = 0.0003
 LR = 0.0003

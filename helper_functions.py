@@ -1,6 +1,5 @@
 import os
 
-
 def count_classes(directory: str) -> int:
     """
     Get the list of unique labels in the given directory.
