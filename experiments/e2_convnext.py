@@ -3,13 +3,6 @@ def main():
     import os
     import sys
     import inspect
-
-    currentdir = os.path.dirname(
-        os.path.abspath(inspect.getfile(inspect.currentframe()))
-    )
-    parentdir = os.path.dirname(currentdir)
-    sys.path.insert(0, parentdir)
-
     import pandas as pd
     import torch
     from pytorch_lightning.loggers import WandbLogger
@@ -21,13 +14,28 @@ def main():
     )
     from pytorch_lightning.callbacks import ModelCheckpoint
     from pytorch_lightning import Trainer
-    from pytorch_lightning.callbacks import EarlyStopping, ModelSummary
+    from pytorch_lightning.callbacks import EarlyStopping
     from data.data_modules import CovidDataModule, Sampling
-    from torchmetrics.classification import MulticlassAccuracy
+    from torchmetrics.classification import (
+        MulticlassAccuracy,
+        MulticlassConfusionMatrix,
+        MulticlassAUROC,
+        MulticlassPrecision,
+        MulticlassRecall
+    )
     from torchmetrics import MetricCollection
+    from models.convnext import ConvNext
+    from data.transforms.image_transformation import BilateralFilter
+    from data.transforms.folder_image_converter import FolderImageConverter
     from torch import nn
     import wandb
     import configuration as config
+    
+    currentdir = os.path.dirname(
+        os.path.abspath(inspect.getfile(inspect.currentframe()))
+    )
+    parentdir = os.path.dirname(currentdir)
+    sys.path.insert(0, parentdir)
 
     torch.set_float32_matmul_precision("high")
     device = "cuda" if torch.cuda.is_available() else "cpu"
@@ -38,21 +46,33 @@ def main():
         {
             "Accuracy": MulticlassAccuracy(num_classes=class_count, average="micro"),
             "BalancedAccuracy": MulticlassAccuracy(num_classes=class_count),
+            "Precision": MulticlassPrecision(num_classes=class_count),
+            "Recall": MulticlassRecall(num_classes=class_count),
+            "ROC": MulticlassAUROC(num_classes=class_count),
+            "ConfusionMatrix": MulticlassConfusionMatrix(num_classes=class_count)
         }
     )
+    
+    converter = FolderImageConverter(
+        root_dir=config.ROOT_DIR,
+        dest_dir=config.BILATERAL_DIR,
+        check_if_exists=True
+    )
 
-    from models.convnext import ConvNext
-
+    bilateral = BilateralFilter()
+    # Transforms only if dir doesnt exist
+    converter.convert(transformation=bilateral)
+    
     train_transform, test_transform = get_conv_model_transformations()
 
     cr_leaves_dm = CovidDataModule(
-        root_dir=config.ROOT_DIR,
+        root_dir=config.BILATERAL_DIR,
         batch_size=config.BATCH_SIZE,
         test_size=config.TEST_SIZE,
         use_index=config.USE_INDEX,
         indices_dir=config.INDICES_DIR,
         sampling=Sampling.NONE,
-        train_transform=test_transform,
+        train_transform=train_transform,
         test_transform=test_transform,
     )
 
