@@ -161,3 +161,8 @@ cython_debug/
 
 dataset\COVID-19_Radiography_Dataset
 dataset
+wandb/run-20240517_133213-convnext_0_72b867e6/files/wandb-metadata.json
+wandb/run-20240517_133213-convnext_0_72b867e6/files/requirements.txt
+wandb/run-20240517_133213-convnext_0_72b867e6/files/config.yaml
+wandb/run-20240517_133213-convnext_0_72b867e6/run-convnext_0_72b867e6.wandb
+indices/COVID-19_Radiography_Dataset.pkl

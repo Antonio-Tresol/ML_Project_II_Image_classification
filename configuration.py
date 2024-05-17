@@ -1,8 +1,8 @@
 COVID_DATASET = "COVID-19_Radiography_Dataset"
-ROOT_DIR = "dataset/COVID-19_Radiography_Dataset/"
+ROOT_DIR = r"dataset/COVID-19_Radiography_Dataset/"
 EPOCHS = 30
-LR = 0.0003
-LR = 0.0003
+LR = 0.003
+LR = 0.003
 SCHEDULER_MAX_IT = 30
 WEIGH_DECAY = 1e-4
 EPSILON = 1e-4
@@ -12,17 +12,18 @@ BATCH_SIZE = 64
 TEST_SIZE = 0.5
 TRAIN_SIZE = 1 - TEST_SIZE
 EPOCHS = 30
-
+USE_INDEX = False
 # callback
 PATIENCE = 3
 
+TOP_K_SAVES = 1
 # training loop
 NUM_TRIALS = 1
 
 INDICES_DIR = "indices/"
 CHECKPOINTS_DIR = "checkpoints/"
 METRICS_DIR = "metrics/"
-WANDB_PROJECT = "Covid-image-classifier"
+WANDB_PROJECT = "Covid-19-ml-project"
 
 # model directories
 CONVNEXT_DIR = CHECKPOINTS_DIR + "convnext/"
