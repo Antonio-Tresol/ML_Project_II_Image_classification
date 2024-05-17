@@ -1,8 +1,15 @@
 import torch
-import torchvision
 from pytorch_lightning import LightningModule
 from torch.optim import Adam
 from torch.optim.lr_scheduler import CosineAnnealingLR
+from sklearn.metrics import ConfusionMatrixDisplay
+import wandb
+import numpy as np
+
+import io
+import PIL.Image
+import matplotlib.pyplot as plt
+import seaborn as sns
 
 
 class ImageClassificationLightningModule(LightningModule):
@@ -10,9 +17,10 @@ class ImageClassificationLightningModule(LightningModule):
     LightningModule implementation for image classification tasks.
 
     Args:
-        conv_model: Model instance representing the Convolution Network Model.
+        model: Model instance representing the Convolution Network Model.
         loss_fn: Loss function used for training.
         metrics: Metrics used for evaluation.
+        cm: Confusion matrix metric.
         lr (float): Learning rate for the optimizer.
         scheduler_max_it (int): Maximum number of iterations for the learning rate scheduler.
         weight_decay (float): Weight decay for the optimizer.
@@ -42,9 +50,11 @@ class ImageClassificationLightningModule(LightningModule):
         self.train_metrics = metrics.clone(prefix="train/")
         self.val_metrics = metrics.clone(prefix="val/")
         self.test_metrics = metrics.clone(prefix="test/")
-        self.lr = lr
         self.scheduler_max_it = scheduler_max_it
         self.weight_decay = weight_decay
+        self.lr = lr
+        self.all_preds = []
+        self.all_targets = []
 
     def forward(self, X):
         """
@@ -58,6 +68,18 @@ class ImageClassificationLightningModule(LightningModule):
         """
         outputs = self.model(X)
         return outputs
+
+    def _plot_cm(y_true, pred):
+        wandb.log(
+            {
+                "train/conf_mat": wandb.plot.confusion_matrix(
+                    probs=None,
+                    y_true=y_true,
+                    preds=pred,
+                    class_names=["Covid", "Lung Opacity", "Normal", "Viral Pneumonia"],
+                ),
+            }
+        )
 
     def _common_step(self, batch, batch_idx):
         """
@@ -92,7 +114,6 @@ class ImageClassificationLightningModule(LightningModule):
         self.train_metrics.update(y_hat, y)
 
         self.log("train/loss", loss, on_step=False, on_epoch=True, prog_bar=True)
-
         return {"loss": loss, "train/labels": y, "train/predictions": y_hat}
 
     def on_train_epoch_end(self):
@@ -148,6 +169,8 @@ class ImageClassificationLightningModule(LightningModule):
         y, y_hat, loss = self._common_step(batch, batch_idx)
 
         y_hat = torch.argmax(torch.softmax(y_hat, dim=-1), dim=-1)
+        self.all_targets.append(y)
+        self.all_preds.append(y_hat)
         self.test_metrics.update(y_hat, y)
 
         self.log("test/loss", loss, on_step=False, on_epoch=True, prog_bar=True)
@@ -159,6 +182,15 @@ class ImageClassificationLightningModule(LightningModule):
         Computes and logs the testing metrics.
         """
         self.log_dict(self.test_metrics.compute(), on_step=False, on_epoch=True)
+        all_preds = torch.cat(self.all_preds).cpu().detach().numpy()
+        all_targets = torch.cat(self.all_targets).cpu().detach().numpy()
+
+        self._plot_cm(all_preds, all_targets)
+
+        self.all_preds = []
+        self.all_targets = []
+
+        self.val_metrics.reset()
 
         self.test_metrics.reset()
 
@@ -172,31 +204,3 @@ class ImageClassificationLightningModule(LightningModule):
         optimizer = Adam(self.model.parameters(), lr=self.lr)
         scheduler = CosineAnnealingLR(optimizer, T_max=self.scheduler_max_it)
         return [optimizer], [scheduler]
-
-
-def get_conv_model_transformations() -> tuple[torchvision.transforms.Compose]:
-    train_transform = torchvision.transforms.Compose(
-        [
-            torchvision.transforms.Resize(232),
-            torchvision.transforms.CenterCrop(224),
-            torchvision.transforms.ToTensor(),
-            torchvision.transforms.RandomHorizontalFlip(),
-            torchvision.transforms.RandomVerticalFlip(),
-            torchvision.transforms.RandomRotation(45),
-            torchvision.transforms.Normalize(
-                [0.485, 0.456, 0.406], [0.229, 0.224, 0.225]
-            ),
-        ]
-    )
-
-    test_transform = torchvision.transforms.Compose(
-        [
-            torchvision.transforms.Resize(232),
-            torchvision.transforms.CenterCrop(224),
-            torchvision.transforms.ToTensor(),
-            torchvision.transforms.Normalize(
-                [0.485, 0.456, 0.406], [0.229, 0.224, 0.225]
-            ),
-        ]
-    )
-    return train_transform, test_transform

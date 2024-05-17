@@ -1,17 +1,17 @@
 COVID_DATASET = "COVID-19_Radiography_Dataset"
 ROOT_DIR = r"dataset/COVID-19_Radiography_Dataset/"
 EPOCHS = 30
-LR = 0.003
-LR = 0.003
+LR = 0.001
+LR = 0.001
 SCHEDULER_MAX_IT = 30
 WEIGH_DECAY = 1e-4
 EPSILON = 1e-4
 
 # train loop
 BATCH_SIZE = 64
-TEST_SIZE = 0.5
+TEST_SIZE = 0.8
 TRAIN_SIZE = 1 - TEST_SIZE
-EPOCHS = 30
+EPOCHS = 5
 USE_INDEX = False
 # callback
 PATIENCE = 3
@@ -42,4 +42,12 @@ MLP_CSV_FILENAME = METRICS_DIR + MLP_FILENAME + "metrics.csv"
 
 
 # transformed images directories
-MLP_FEATURES_DIR = "lbp/"
+MLP_FEATURES_DIR = "dataset/lbp/"
+BILATERAL_DIR = "dataset/bf/"
+
+# transformations
+RESIZE = 236
+CROP = 224
+STD = [0.229, 0.224, 0.225]
+MEAN = [0.485, 0.456, 0.406]
+ROTATION = 30

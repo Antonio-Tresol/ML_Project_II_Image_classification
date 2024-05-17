@@ -15,10 +15,7 @@ def main():
     from pytorch_lightning.loggers import WandbLogger
     from helper_functions import count_classes
 
-    from models.image_classifier_module import (
-        ImageClassificationLightningModule,
-        get_conv_model_transformations,
-    )
+    from models.image_classifier_module import ImageClassificationLightningModule
     from pytorch_lightning.callbacks import ModelCheckpoint
     from pytorch_lightning import Trainer
     from pytorch_lightning.callbacks import EarlyStopping
@@ -26,12 +23,11 @@ def main():
     from torchmetrics.classification import (
         MulticlassAccuracy,
         MulticlassConfusionMatrix,
-        MulticlassAUROC,
         MulticlassPrecision,
         MulticlassRecall,
     )
     from torchmetrics import MetricCollection
-    from models.convnext import ConvNext
+    from models.convnext import ConvNext, get_conv_model_transformations
     from torch import nn
     import wandb
     import configuration as config
@@ -47,8 +43,6 @@ def main():
             "BalancedAccuracy": MulticlassAccuracy(num_classes=class_count),
             "Precision": MulticlassPrecision(num_classes=class_count),
             "Recall": MulticlassRecall(num_classes=class_count),
-            "ROC": MulticlassAUROC(num_classes=class_count),
-            "ConfusionMatrix": MulticlassConfusionMatrix(num_classes=class_count),
         }
     )
 
@@ -75,6 +69,7 @@ def main():
             model=convnext,
             loss_fn=nn.CrossEntropyLoss(),
             metrics=metrics,
+            cm=MulticlassConfusionMatrix(num_classes=class_count),
             lr=config.LR,
             scheduler_max_it=config.SCHEDULER_MAX_IT,
         )
