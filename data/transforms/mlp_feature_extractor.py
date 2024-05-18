@@ -1,12 +1,22 @@
-import sys
-import os
-sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '../..')))
-
 from data.transforms.image_transformation import ImageTransformation
 
+import os
 import cv2
 from PIL import Image
 import numpy as np
+import pickle
+from sklearn.cluster import KMeans
+
+def load_keypoints_descriptors(filepath):
+    with open(filepath, 'rb') as f:
+        key_points, descriptors = pickle.load(f)
+    return key_points, descriptors  
+
+def create_feature_vector(descriptors, kmeans):
+    labels = kmeans.predict(descriptors)
+    hist, _ = np.histogram(labels, bins=np.arange(kmeans.n_clusters + 1))
+    hist = hist.astype(float) / np.sum(hist)
+    return hist    
 
 class MlpFeatureExtractor(ImageTransformation):
     '''
@@ -39,6 +49,16 @@ class MlpFeatureExtractor(ImageTransformation):
         self.fast_threshold = fast_threshold
 
     def fit(self, image: Image.Image) -> Image.Image:
+        _, _, image_pil = self.extract_features(image)
+        return image_pil
+    
+    '''
+        Retuns
+        - key_points: the keypoints found in the image
+        - descriptors: the descriptors of the keypoints
+        - image_pil: the image with the keypoints drawn on it (for feature visualization purposes)
+    '''
+    def extract_features(self, image: Image.Image):
         '''
         PIL.Image format is not compatible, as such we need a few conversions first
         1. Convert PIL.Image to numpy array
@@ -57,7 +77,7 @@ class MlpFeatureExtractor(ImageTransformation):
 
         # detect and compute the keypoints on image (grayscale)
         key_points = orb.detect(grayscale_image, None)
-        key_points, des = orb.compute(grayscale_image, key_points)
+        key_points, descriptors = orb.compute(grayscale_image, key_points)
 
         # draw keypoints on the image
         image_with_keypoints = cv2.drawKeypoints(grayscale_image, key_points, None, self.color, self.flags)
@@ -66,19 +86,39 @@ class MlpFeatureExtractor(ImageTransformation):
         image_array = cv2.cvtColor(image_with_keypoints, cv2.COLOR_BGR2RGB)
         image_pil = Image.fromarray(image_array)
 
-        return image_pil
+        return key_points, descriptors, image_pil
+    
+    # Extracts the features of an image and saves them to a file as well as the picture in order to visualize the features
+    def extract_picture_features(self, dest_folder_dir, image_path: str) -> None: 
+        img = Image.open(image_path).convert("RGB")
 
-def extract_all_features():
-    from data.transforms.folder_image_converter import FolderImageConverter
-    import configuration as config
+        key_points, descriptors, new_img = self.extract_features(img)
 
-    converter = FolderImageConverter(
-        root_dir = config.ROOT_DIR,
-        dest_dir = config.MLP_FEATURES_DIR,
-        check_if_exists = True
-    )
+        new_img.save(os.path.join(dest_folder_dir, image_path))
 
-    feature_extractor = MlpFeatureExtractor(n_features=5000)
-    converter.convert(transformation=feature_extractor)
+        with open(os.path.join(dest_folder_dir, image_path + ".txt"), "wb") as file:
+            pickle.dump((key_points, descriptors), file)
 
-extract_all_features()
+    # before training, reads the data from the features folder and generates the feature vectors
+    def generate_features_vector(self, features_folder_path: str, num_clusters: int = 50, random_state: int = 42): 
+        for folder in os.scandir(features_folder_path):
+            if folder.is_dir():
+                descriptors = []
+
+                for features in os.scandir(folder):
+                    _, descriptors = load_keypoints_descriptors(features.path)
+
+                    if descriptors is not None:
+                        descriptors.append(descriptors)
+
+        descriptors = np.vstack(descriptors)
+        
+        kmeans = KMeans(n_clusters=num_clusters, random_state=random_state)
+        kmeans.fit(descriptors)
+
+        feature_vectors = [create_feature_vector(desc, kmeans) for desc in descriptors]
+        feature_vectors = np.array(feature_vectors)
+
+        return feature_vectors
+                    
+      
