@@ -28,6 +28,39 @@ def create_feature_vector(descriptors, kmeans):
     hist = hist.astype(float) / np.sum(hist)
     return hist
 
+def normalize_descriptors(descriptors, output_shape=(32, 32)):
+    # Normalize descriptors to the range [0, 255]
+    normalized_descriptors = cv2.normalize(descriptors, None, alpha=0, beta=255, norm_type=cv2.NORM_MINMAX)
+    normalized_descriptors = np.uint8(normalized_descriptors)
+
+    # Reshape the descriptors to fit into the desired image shape
+    if normalized_descriptors.shape[0] > output_shape[0] * output_shape[1]:
+        normalized_descriptors = normalized_descriptors[:output_shape[0] * output_shape[1], :]
+
+    padded_descriptors = np.zeros((output_shape[0] * output_shape[1], normalized_descriptors.shape[1]), dtype=np.uint8)
+    padded_descriptors[:normalized_descriptors.shape[0], :] = normalized_descriptors
+
+    image_shape = (output_shape[0], output_shape[1], normalized_descriptors.shape[1])
+    descriptor_image = padded_descriptors.reshape(image_shape)
+    
+    if descriptor_image.shape[2] == 1:
+        descriptor_image = descriptor_image.squeeze()
+    
+    return descriptor_image
+
+def save_descriptors_as_image(descriptors, filepath, output_shape=(32, 32)):
+    descriptor_image = normalize_descriptors(descriptors, output_shape=output_shape)
+
+    # Convert to PIL Image
+    if descriptor_image.ndim == 2:  # Grayscale image
+        descriptor_image_pil = Image.fromarray(descriptor_image, mode='L')
+    elif descriptor_image.ndim == 3:  # RGB image
+        descriptor_image = np.repeat(descriptor_image, 3, axis=2)  # Ensure 3 channels if not already
+        descriptor_image_pil = Image.fromarray(descriptor_image, mode='RGB')
+    else:
+        raise ValueError("Unsupported descriptor image shape for conversion to PIL Image.")
+
+    descriptor_image_pil.save(filepath)
 
 class MlpFeatureExtractor(ImageTransformation):
     """
@@ -115,13 +148,8 @@ class MlpFeatureExtractor(ImageTransformation):
 
         new_img.save(os.path.join(dest_folder_dir, image.name))
 
-        key_points_list = [
-            (kp.pt, kp.size, kp.angle, kp.response, kp.octave, kp.class_id)
-            for kp in key_points
-        ]
-
-        with open(os.path.join(dest_folder_dir, image.name + ".txt"), "wb") as file:
-            pickle.dump((key_points_list, descriptors), file)
+        if descriptors is not None:
+            save_descriptors_as_image(descriptors, os.path.join(dest_folder_dir, f"{image.name}.png"))
 
     # before training, reads the data from the features folder and generates the feature vectors
     def generate_features_vector(
