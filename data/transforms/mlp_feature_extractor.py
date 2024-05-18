@@ -148,8 +148,10 @@ class MlpFeatureExtractor(ImageTransformation):
 
         new_img.save(os.path.join(dest_folder_dir, image.name))
 
+        features_image_name = image.name.replace(".png", "_features.png")
+
         if descriptors is not None:
-            save_descriptors_as_image(descriptors, os.path.join(dest_folder_dir, f"{image.name}.png"))
+            save_descriptors_as_image(descriptors, os.path.join(dest_folder_dir, features_image_name))
 
     # before training, reads the data from the features folder and generates the feature vectors
     def generate_features_vector(
@@ -224,6 +226,7 @@ class FolderImageFeatureExtractor:
             if not directory_existed_already:
                 print("Folder did not exist")
                 self.__transform_folder(transformation=transformation)
+                return
 
             print("Folder existed")
 
