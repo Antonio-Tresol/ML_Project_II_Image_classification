@@ -65,7 +65,7 @@ def main():
     bilateral_filter = BilateralFilter()
     converter.convert(transformation=bilateral_filter)
 
-    cr_leaves_dm = CovidDataModule(
+    covid_dm = CovidDataModule(
         root_dir=config.BILATERAL_DIR,
         batch_size=config.BATCH_SIZE,
         test_size=config.TEST_SIZE,
@@ -76,8 +76,8 @@ def main():
         test_transform=test_transform,
     )
 
-    cr_leaves_dm.prepare_data()
-    cr_leaves_dm.create_data_loaders()
+    covid_dm.prepare_data()
+    covid_dm.create_data_loaders()
 
     metrics_data = []
     for i in range(config.NUM_TRIALS):
@@ -119,10 +119,10 @@ def main():
             log_every_n_steps=1,
         )
 
-        trainer.fit(model, datamodule=cr_leaves_dm)
+        trainer.fit(model, datamodule=covid_dm)
 
         # save the metrics per class as well as the confusion matrix to a csv file
-        metrics_data.append(trainer.test(model, datamodule=cr_leaves_dm)[0])
+        metrics_data.append(trainer.test(model, datamodule=covid_dm)[0])
 
         results_per_class_metrics = model.test_vect_metrics_result
 

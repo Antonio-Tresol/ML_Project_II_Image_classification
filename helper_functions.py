@@ -21,6 +21,3 @@ def count_per_class(directory: str) -> list[int]:
         for label in os.listdir(directory)
     ]
     return count_per_class
-
-
-print(str(count_per_class("dataset/COVID-19_Radiography_Dataset")))
