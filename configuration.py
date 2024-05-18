@@ -11,7 +11,7 @@ EPSILON = 1e-4
 BATCH_SIZE = 64
 TEST_SIZE = 0.8
 TRAIN_SIZE = 1 - TEST_SIZE
-EPOCHS = 5
+EPOCHS = 2
 USE_INDEX = False
 # callback
 PATIENCE = 3
@@ -37,8 +37,22 @@ MLP_FILENAME = "mlp_"
 
 # csv file names
 CONVNEXT_CSV_FILENAME = METRICS_DIR + CONVNEXT_FILENAME + "metrics.csv"
-CONVNEXT_BILATERAL_CSV_FILENAME = METRICS_DIR + CONVNEXT_FILENAME + "metrics.csv"
+CONVNEXT_CSV_PER_CLASS_FILENAME = (
+    METRICS_DIR + CONVNEXT_FILENAME + "per_class_metrics.csv"
+)
+CONVNEXT_CSV_CM_FILENAME = METRICS_DIR + CONVNEXT_FILENAME + "confusion_matrix.csv"
+CONVNEXT_BILATERAL_CSV_FILENAME = (
+    METRICS_DIR + CONVNEXT_FILENAME + "_bilateral_metrics.csv"
+)
+CONVNEXT_BILATERAL_CSV_PER_CLASS_FILENAME = (
+    METRICS_DIR + CONVNEXT_FILENAME + "_bilateral_per_class_metrics.csv"
+)
+CONVNEXT_BILATERAL_CSV_CM_FILENAME = (
+    METRICS_DIR + CONVNEXT_FILENAME + "_bilateral_confusion_matrix.csv"
+)
 MLP_CSV_FILENAME = METRICS_DIR + MLP_FILENAME + "metrics.csv"
+MLP_CSV_PER_CLASS_FILENAME = METRICS_DIR + MLP_FILENAME + "per_class_metrics.csv"
+MLP_CSV_CM_FILENAME = METRICS_DIR + MLP_FILENAME + "confusion_matrix.csv"
 
 
 # transformed images directories
@@ -51,3 +65,5 @@ CROP = 224
 STD = [0.229, 0.224, 0.225]
 MEAN = [0.485, 0.456, 0.406]
 ROTATION = 30
+
+CLASS_NAMES = ["Covid-19", "Lung Opacity", "Normal", "Viral Pneumonia"]

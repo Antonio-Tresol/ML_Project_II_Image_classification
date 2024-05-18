@@ -20,7 +20,7 @@ class ImageClassificationLightningModule(LightningModule):
         model: Model instance representing the Convolution Network Model.
         loss_fn: Loss function used for training.
         metrics: Metrics used for evaluation.
-        cm: Confusion matrix metric.
+        vectorized_metrics: Metrics that return a vector as a result of the computing.
         lr (float): Learning rate for the optimizer.
         scheduler_max_it (int): Maximum number of iterations for the learning rate scheduler.
         weight_decay (float): Weight decay for the optimizer.
@@ -40,6 +40,7 @@ class ImageClassificationLightningModule(LightningModule):
         model,
         loss_fn,
         metrics,
+        vectorized_metrics,
         lr,
         scheduler_max_it,
         weight_decay=0,
@@ -47,14 +48,20 @@ class ImageClassificationLightningModule(LightningModule):
         super().__init__()
         self.model = model
         self.loss_fn = loss_fn
+
         self.train_metrics = metrics.clone(prefix="train/")
         self.val_metrics = metrics.clone(prefix="val/")
         self.test_metrics = metrics.clone(prefix="test/")
+
+        self.train_vect_metrics = vectorized_metrics.clone(prefix="train/")
+        self.val_vect_metrics = vectorized_metrics.clone(prefix="val/")
+        self.test_vect_metrics = vectorized_metrics.clone()
         self.scheduler_max_it = scheduler_max_it
         self.weight_decay = weight_decay
         self.lr = lr
         self.all_preds = []
         self.all_targets = []
+        self.test_vect_metrics_result = {}
 
     def forward(self, X):
         """
@@ -69,7 +76,14 @@ class ImageClassificationLightningModule(LightningModule):
         outputs = self.model(X)
         return outputs
 
-    def _plot_cm(y_true, pred):
+    def _plot_cm(self, y_true, pred):
+        """
+        Plot a confusion matrix on the log.
+
+        Args:
+            y_true: numpy array with the true labels.
+            pred: numpy array with the predicted labels.
+        """
         wandb.log(
             {
                 "train/conf_mat": wandb.plot.confusion_matrix(
@@ -171,7 +185,9 @@ class ImageClassificationLightningModule(LightningModule):
         y_hat = torch.argmax(torch.softmax(y_hat, dim=-1), dim=-1)
         self.all_targets.append(y)
         self.all_preds.append(y_hat)
+
         self.test_metrics.update(y_hat, y)
+        self.test_vect_metrics.update(y_hat, y)
 
         self.log("test/loss", loss, on_step=False, on_epoch=True, prog_bar=True)
         return {"loss": loss, "test/labels": y, "test/predictions": y_hat}
@@ -187,12 +203,10 @@ class ImageClassificationLightningModule(LightningModule):
 
         self._plot_cm(all_preds, all_targets)
 
+        self.test_vect_metrics_result = self.test_vect_metrics.compute()
+        self.test_vect_metrics.reset()
         self.all_preds = []
         self.all_targets = []
-
-        self.val_metrics.reset()
-
-        self.test_metrics.reset()
 
     def configure_optimizers(self):
         """

@@ -45,6 +45,14 @@ def main():
             "Recall": MulticlassRecall(num_classes=class_count),
         }
     )
+    vector_metrics = MetricCollection(
+        {
+            "Accuracy": MulticlassAccuracy(num_classes=class_count, average=None),
+            "Precision": MulticlassPrecision(num_classes=class_count, average=None),
+            "Recall": MulticlassRecall(num_classes=class_count, average=None),
+            "Confusion Matrix": MulticlassConfusionMatrix(num_classes=class_count),
+        }
+    )
 
     train_transform, test_transform = get_conv_model_transformations()
 
@@ -69,10 +77,11 @@ def main():
             model=convnext,
             loss_fn=nn.CrossEntropyLoss(),
             metrics=metrics,
-            cm=MulticlassConfusionMatrix(num_classes=class_count),
+            vectorized_metrics=vector_metrics,
             lr=config.LR,
             scheduler_max_it=config.SCHEDULER_MAX_IT,
         )
+
         early_stop_callback = EarlyStopping(
             monitor="val/loss",
             patience=config.PATIENCE,
@@ -80,6 +89,7 @@ def main():
             verbose=False,
             mode="min",
         )
+
         checkpoint_callback = ModelCheckpoint(
             monitor="val/loss",
             dirpath=config.CONVNEXT_DIR,
@@ -99,7 +109,29 @@ def main():
         )
 
         trainer.fit(model, datamodule=cr_leaves_dm)
+
+        # save the metrics per class as well as the confusion matrix to a csv file
         metrics_data.append(trainer.test(model, datamodule=cr_leaves_dm)[0])
+
+        results_per_class_metrics = model.test_vect_metrics_result
+
+        metrics_per_class = pd.DataFrame(
+            {
+                "Accuracy": results_per_class_metrics["Accuracy"].cpu().numpy(),
+                "Precision": results_per_class_metrics["Precision"].cpu().numpy(),
+                "Recall": results_per_class_metrics["Recall"].cpu().numpy(),
+            },
+            index=config.CLASS_NAMES,
+        )
+
+        confusion_matrix = pd.DataFrame(
+            results_per_class_metrics["Confusion Matrix"].cpu().numpy(),
+            index=config.CLASS_NAMES,
+            columns=config.CLASS_NAMES,
+        )
+
+        metrics_per_class.to_csv(config.CONVNEXT_CSV_PER_CLASS_FILENAME)
+        confusion_matrix.to_csv(config.CONVNEXT_CSV_CM_FILENAME)
         wandb.finish()
 
     pd.DataFrame(metrics_data).to_csv(config.CONVNEXT_CSV_FILENAME, index=False)

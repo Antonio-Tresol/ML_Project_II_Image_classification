@@ -1,17 +1,21 @@
-# con filtro
+# sin filtro
 def main():
     import os
     import sys
     import inspect
+
+    currentdir = os.path.dirname(
+        os.path.abspath(inspect.getfile(inspect.currentframe()))
+    )
+    parentdir = os.path.dirname(currentdir)
+    sys.path.insert(0, parentdir)
+
     import pandas as pd
     import torch
     from pytorch_lightning.loggers import WandbLogger
     from helper_functions import count_classes
 
-    from models.image_classifier_module import (
-        ImageClassificationLightningModule,
-        get_conv_model_transformations,
-    )
+    from models.image_classifier_module import ImageClassificationLightningModule
     from pytorch_lightning.callbacks import ModelCheckpoint
     from pytorch_lightning import Trainer
     from pytorch_lightning.callbacks import EarlyStopping
@@ -19,23 +23,16 @@ def main():
     from torchmetrics.classification import (
         MulticlassAccuracy,
         MulticlassConfusionMatrix,
-        MulticlassAUROC,
         MulticlassPrecision,
-        MulticlassRecall
+        MulticlassRecall,
     )
     from torchmetrics import MetricCollection
-    from models.convnext import ConvNext
-    from data.transforms.image_transformation import BilateralFilter
+    from models.convnext import ConvNext, get_conv_model_transformations
     from data.transforms.folder_image_converter import FolderImageConverter
+    from data.transforms.image_transformation import BilateralFilter
     from torch import nn
     import wandb
     import configuration as config
-    
-    currentdir = os.path.dirname(
-        os.path.abspath(inspect.getfile(inspect.currentframe()))
-    )
-    parentdir = os.path.dirname(currentdir)
-    sys.path.insert(0, parentdir)
 
     torch.set_float32_matmul_precision("high")
     device = "cuda" if torch.cuda.is_available() else "cpu"
@@ -48,22 +45,25 @@ def main():
             "BalancedAccuracy": MulticlassAccuracy(num_classes=class_count),
             "Precision": MulticlassPrecision(num_classes=class_count),
             "Recall": MulticlassRecall(num_classes=class_count),
-            "ROC": MulticlassAUROC(num_classes=class_count),
-            "ConfusionMatrix": MulticlassConfusionMatrix(num_classes=class_count)
         }
     )
-    
-    converter = FolderImageConverter(
-        root_dir=config.ROOT_DIR,
-        dest_dir=config.BILATERAL_DIR,
-        check_if_exists=True
+    vector_metrics = MetricCollection(
+        {
+            "Accuracy": MulticlassAccuracy(num_classes=class_count, average=None),
+            "Precision": MulticlassPrecision(num_classes=class_count, average=None),
+            "Recall": MulticlassRecall(num_classes=class_count, average=None),
+            "Confusion Matrix": MulticlassConfusionMatrix(num_classes=class_count),
+        }
     )
 
-    bilateral = BilateralFilter()
-    # Transforms only if dir doesnt exist
-    converter.convert(transformation=bilateral)
-    
     train_transform, test_transform = get_conv_model_transformations()
+
+    converter = FolderImageConverter(
+        root_dir=config.ROOT_DIR, dest_dir=config.BILATERAL_DIR, check_if_exists=True
+    )
+
+    bilateral_filter = BilateralFilter()
+    converter.convert(transformation=bilateral_filter)
 
     cr_leaves_dm = CovidDataModule(
         root_dir=config.BILATERAL_DIR,
@@ -83,12 +83,14 @@ def main():
     for i in range(config.NUM_TRIALS):
         convnext = ConvNext(num_classes=class_count, device=device)
         model = ImageClassificationLightningModule(
-            conv_model=convnext,
+            model=convnext,
             loss_fn=nn.CrossEntropyLoss(),
             metrics=metrics,
+            vectorized_metrics=vector_metrics,
             lr=config.LR,
             scheduler_max_it=config.SCHEDULER_MAX_IT,
         )
+
         early_stop_callback = EarlyStopping(
             monitor="val/loss",
             patience=config.PATIENCE,
@@ -96,15 +98,18 @@ def main():
             verbose=False,
             mode="min",
         )
+
         checkpoint_callback = ModelCheckpoint(
             monitor="val/loss",
             dirpath=config.CONVNEXT_DIR,
-            filename=config.CONVNEXT_FILENAME + str(i),
+            filename=config.CONVNEXT_BILATERAL_FILENAME + str(i),
             save_top_k=config.TOP_K_SAVES,
             mode="min",
         )
 
-        id = config.CONVNEXT_FILENAME + str(i) + "_" + wandb.util.generate_id()
+        id = (
+            config.CONVNEXT_BILATERAL_FILENAME + str(i) + "_" + wandb.util.generate_id()
+        )
         wandb_logger = WandbLogger(project=config.WANDB_PROJECT, id=id, resume="allow")
 
         trainer = Trainer(
@@ -115,10 +120,34 @@ def main():
         )
 
         trainer.fit(model, datamodule=cr_leaves_dm)
+
+        # save the metrics per class as well as the confusion matrix to a csv file
         metrics_data.append(trainer.test(model, datamodule=cr_leaves_dm)[0])
+
+        results_per_class_metrics = model.test_vect_metrics_result
+
+        metrics_per_class = pd.DataFrame(
+            {
+                "Accuracy": results_per_class_metrics["Accuracy"].cpu().numpy(),
+                "Precision": results_per_class_metrics["Precision"].cpu().numpy(),
+                "Recall": results_per_class_metrics["Recall"].cpu().numpy(),
+            },
+            index=config.CLASS_NAMES,
+        )
+
+        confusion_matrix = pd.DataFrame(
+            results_per_class_metrics["Confusion Matrix"].cpu().numpy(),
+            index=config.CLASS_NAMES,
+            columns=config.CLASS_NAMES,
+        )
+
+        metrics_per_class.to_csv(config.CONVNEXT_BILATERAL_CSV_PER_CLASS_FILENAME)
+        confusion_matrix.to_csv(config.CONVNEXT_BILATERAL_CSV_CM_FILENAME)
         wandb.finish()
 
-    pd.DataFrame(metrics_data).to_csv(config.CONVNEXT_CSV_FILENAME, index=False)
+    pd.DataFrame(metrics_data).to_csv(
+        config.CONVNEXT_BILATERAL_CSV_FILENAME, index=False
+    )
 
 
 if __name__ == "__main__":
