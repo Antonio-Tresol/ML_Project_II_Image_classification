@@ -1,3 +1,9 @@
+import sys
+import os
+
+sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "../..")))
+
+
 from data.transforms.image_transformation import ImageTransformation
 from data.transforms.folder_image_converter import FolderImageConverter
 from data.transforms.folder_image_converter import try_create_directory
@@ -102,15 +108,20 @@ class MlpFeatureExtractor(ImageTransformation):
         return key_points, descriptors, image_pil
 
     # Extracts the features of an image and saves them to a file as well as the picture in order to visualize the features
-    def extract_picture_features(self, dest_folder_dir, image_path: str) -> None:
-        img = Image.open(image_path).convert("RGB")
+    def extract_picture_features(self, dest_folder_dir, image) -> None:
+        img = Image.open(image.path).convert("RGB")
 
         key_points, descriptors, new_img = self.extract_features(img)
 
-        new_img.save(os.path.join(dest_folder_dir, image_path))
+        new_img.save(os.path.join(dest_folder_dir, image.name))
 
-        with open(os.path.join(dest_folder_dir, image_path + ".txt"), "wb") as file:
-            pickle.dump((key_points, descriptors), file)
+        key_points_list = [
+            (kp.pt, kp.size, kp.angle, kp.response, kp.octave, kp.class_id)
+            for kp in key_points
+        ]
+
+        with open(os.path.join(dest_folder_dir, image.name + ".txt"), "wb") as file:
+            pickle.dump((key_points_list, descriptors), file)
 
     # before training, reads the data from the features folder and generates the feature vectors
     def generate_features_vector(
@@ -137,11 +148,22 @@ class MlpFeatureExtractor(ImageTransformation):
         return feature_vectors
 
 
-class FolderImageFeatureExtractor(FolderImageConverter):
+class FolderImageFeatureExtractor:
     def __init__(self, root_dir: str, dest_dir: str, check_if_exists: bool) -> None:
-        super(FolderImageFeatureExtractor, self).__init__(
-            root_dir, dest_dir, check_if_exists
-        )
+        """
+        Initialize the FolderImageConverter class.
+
+        Parameters:
+        - root_dir (str): The root directory containing the folders with images.
+        - dest_dir (str): The destination directory where transformed images will be saved.
+        - check_if_exists (bool): Whether to check if the root directory exists.
+
+        Returns:
+        - None
+        """
+        self.root_dir = root_dir
+        self.dest_dir = dest_dir
+        self.check_if_folder_exists = check_if_exists
 
     def __transform_folder(self, transformation) -> None:
         for folder in os.scandir(self.root_dir):
@@ -154,4 +176,47 @@ class FolderImageFeatureExtractor(FolderImageConverter):
                 for image in os.scandir(folder):
                     print(image.path)
 
-                    transformation.extract_picture_features(dest_folder_dir, image.name)
+                    transformation.extract_picture_features(dest_folder_dir, image)
+
+    def convert(self, transformation):
+        """
+        Convert images in the root directory.
+
+        Parameters:
+        - transformation (ImageTransformation): The transformation to apply to the images.
+
+        Returns:
+        - None
+        """
+        if self.check_if_folder_exists:
+            print("Checking if folder exists")
+            directory_existed_already = try_create_directory(
+                directory=self.dest_dir, remove_if_exists=False
+            )
+            if not directory_existed_already:
+                print("Folder did not exist")
+                self.__transform_folder(transformation=transformation)
+
+            print("Folder existed")
+
+        else:
+            try_create_directory(directory=self.dest_dir, remove_if_exists=True)
+
+            self.__transform_folder(transformation=transformation)
+
+
+import configuration as config
+
+imageExtractor = FolderImageFeatureExtractor(
+    root_dir=config.ROOT_DIR,
+    dest_dir=config.MLP_FEATURES_DIR,
+    check_if_exists=True,
+)
+
+featureExtractor = MlpFeatureExtractor()
+
+print("Extracting features from images...")
+
+imageExtractor.convert(transformation=featureExtractor)
+
+print("Features extracted successfully!")
