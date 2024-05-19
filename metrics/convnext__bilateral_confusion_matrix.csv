@@ -1,5 +1,5 @@
 ,Covid-19,Lung Opacity,Normal,Viral Pneumonia
-Covid-19,333,17,244,482
-Lung Opacity,3,25,96,2769
-Normal,7,93,1365,3345
-Viral Pneumonia,122,4,74,7953
+Covid-19,263,0,0,6
+Lung Opacity,0,649,21,53
+Normal,0,1,1084,118
+Viral Pneumonia,1,0,38,1999
