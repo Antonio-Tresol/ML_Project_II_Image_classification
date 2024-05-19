@@ -55,3 +55,30 @@ def get_conv_model_transformations() -> tuple[torchvision.transforms.Compose]:
         ]
     )
     return train_transform, test_transform
+
+
+def get_preprocess_transformation() -> torchvision.transforms.Compose:
+    preprocess = torchvision.transforms.Compose(
+        [
+            torchvision.transforms.Resize(conf.RESIZE),
+            torchvision.transforms.CenterCrop(conf.CROP),
+            torchvision.transforms.ToTensor(),
+            torchvision.transforms.Normalize(conf.MEAN, conf.STD),
+        ]
+    )
+
+    return preprocess
+
+
+def get_deprocess_transformation() -> torchvision.transforms.Compose:
+    deprocess = torchvision.transforms.Compose(
+        [
+            torchvision.transforms.Normalize(
+                mean=[-m / s for m, s in zip(conf.MEAN, conf.STD)],
+                std=[1 / s for s in conf.STD],
+            ),
+            torchvision.transforms.ToPILImage(),
+            torchvision.transforms.Resize(conf.ORIGINAL_SIZE),
+        ]
+    )
+    return deprocess

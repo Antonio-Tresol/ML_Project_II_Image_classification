@@ -1,6 +1,6 @@
 COVID_DATASET = "COVID-19_Radiography_Dataset"
 ROOT_DIR = r"dataset/COVID-19_Radiography_Dataset/"
-LR = 0.001
+LR = 0.0003
 SCHEDULER_MAX_IT = 30
 WEIGH_DECAY = 1e-4
 EPSILON = 1e-4
@@ -58,6 +58,7 @@ MLP_FEATURES_DIR = "dataset/lbp/"
 BILATERAL_DIR = "dataset/bf/"
 
 # transformations
+ORIGINAL_SIZE = (299, 299)
 RESIZE = 236
 CROP = 224
 STD = [0.229, 0.224, 0.225]
