@@ -1,7 +1,5 @@
 COVID_DATASET = "COVID-19_Radiography_Dataset"
 ROOT_DIR = r"dataset/COVID-19_Radiography_Dataset/"
-EPOCHS = 30
-LR = 0.001
 LR = 0.001
 SCHEDULER_MAX_IT = 30
 WEIGH_DECAY = 1e-4
@@ -9,9 +7,9 @@ EPSILON = 1e-4
 
 # train loop
 BATCH_SIZE = 64
-TEST_SIZE = 0.8
+TEST_SIZE = 0.2
 TRAIN_SIZE = 1 - TEST_SIZE
-EPOCHS = 4
+EPOCHS = 15
 USE_INDEX = False
 # callback
 PATIENCE = 3
