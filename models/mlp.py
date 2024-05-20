@@ -19,7 +19,7 @@ class MLP(nn.Module):
             self.layers.append(
                 nn.Linear(hidden_layer_size, hidden_layer_size).to(device)
             )
-            self.layers.append(nn.Sigmoid().to(device))
+            self.layers.append(nn.ReLU().to(device))
         self.layers.append(nn.Linear(hidden_layer_size, output_size).to(device))
         self.require_grads()
 
