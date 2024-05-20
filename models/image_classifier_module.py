@@ -87,7 +87,7 @@ class ImageClassificationLightningModule(LightningModule):
         wandb.log(
             {
                 "train/conf_mat": wandb.plot.confusion_matrix(
-                    probs=None,
+                    probs=None, 
                     y_true=y_true,
                     preds=pred,
                     class_names=["Covid", "Lung Opacity", "Normal", "Viral Pneumonia"],
@@ -108,6 +108,9 @@ class ImageClassificationLightningModule(LightningModule):
         """
         x, y = batch
         y_hat = self(x)
+        print()
+        print(y_hat.shape)
+        print(y.shape)
         loss = self.loss_fn(y_hat, y)
         return y, y_hat, loss
 
