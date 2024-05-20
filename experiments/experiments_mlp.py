@@ -27,8 +27,8 @@ def main():
         MulticlassRecall,
     )
     from torchmetrics import MetricCollection
-    from models.mlp import (MLP, get_mlp_transformations)
-    
+    from models.mlp import MLP, get_mlp_transformations
+
     from torch import nn
     import wandb
     import configuration as config
@@ -54,9 +54,8 @@ def main():
             "Confusion Matrix": MulticlassConfusionMatrix(num_classes=class_count),
         }
     )
-    
-    train_transform, test_transform = get_mlp_transformations()
 
+    train_transform, test_transform = get_mlp_transformations()
 
     covid_dm = CovidDataModule(
         root_dir=config.MLP_FEATURES_DIR,
@@ -68,15 +67,20 @@ def main():
         train_transform=train_transform,
         test_transform=test_transform,
     )
-    
+
     covid_dm.prepare_data()
     covid_dm.create_data_loaders()
 
     metrics_data = []
     for i in range(config.NUM_TRIALS):
         mlp = MLP(
-            input_size=3072, hidden_layer_count=10, hidden_layer_size=256, output_size=class_count, device=device
+            input_size=3072,
+            hidden_layer_count=10,
+            hidden_layer_size=256,
+            output_size=class_count,
+            device=device,
         )
+
         model = ImageClassificationLightningModule(
             model=mlp,
             loss_fn=nn.CrossEntropyLoss(),
@@ -107,7 +111,7 @@ def main():
 
         trainer = Trainer(
             logger=wandb_logger,
-            callbacks=[early_stop_callback],
+            callbacks=[early_stop_callback, checkpoint_callback],
             max_epochs=config.EPOCHS,
             log_every_n_steps=1,
         )
